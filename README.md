@@ -10,6 +10,6 @@ go build -ldflags -H=windowsgui
 ```
 
 ```sh
-git tag v0.1.0
+git tag v0.1.2
 git push origin --tags
 ```
