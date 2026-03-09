@@ -9,17 +9,22 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync" // Tambahkan sync untuk mutex map
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
+// Map global untuk menyimpan daftar presensi: map[IP_Address] = Nomor_Presensi
+var (
+	daftarPresensi = make(map[string]string)
+	presensiMutex  sync.RWMutex
+)
+
 func main() {
 	// Konfigurasi server SFTP
 	host := "0.0.0.0"
-	port := "2022" // Port SFTP
-	user := "x"
-	password := "x"
+	port := "50123" // Port SFTP
 
 	// Path kunci host
 	privateKeyPath := "id_rsa" // Ganti dengan path kunci privat server
@@ -33,10 +38,51 @@ func main() {
 	// Konfigurasi SSH server
 	config := &ssh.ServerConfig{
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
-			if c.User() == user && string(pass) == password {
-				return nil, nil
+			// Mendapatkan IP address (tanpa port) dari client
+			clientIP, _, err := net.SplitHostPort(c.RemoteAddr().String())
+			if err != nil {
+				// Fallback jika format bukan host:port (misal IP langsung)
+				clientIP = c.RemoteAddr().String()
 			}
-			return nil, fmt.Errorf("password rejected for %q", c.User())
+
+			// Mengecek apakah username adalah IP address client
+			if c.User() != clientIP {
+				return nil, fmt.Errorf("username %q tidak cocok dengan IP client %q", c.User(), clientIP)
+			}
+
+			passwordInput := string(pass)
+
+			// Gunakan Lock untuk membaca/menulis ke map secara aman dari banyak koneksi bersamaan
+			presensiMutex.Lock()
+			defer presensiMutex.Unlock()
+
+			// Cek apakah IP ini sudah pernah terdaftar login sebelumnya
+			registeredPassword, exists := daftarPresensi[clientIP]
+
+			if !exists {
+				// ---------------------------------------------------------
+				// KONDISI 1: IP INI BARU PERTAMA KALI MASUK (BELUM TERDAFTAR)
+				// ---------------------------------------------------------
+				// Daftarkan IP ini ke memori beserta "password" yang dia masukkan
+				// (yang kita asumsikan ini adalah nomor presensinya yang pertama kali ia ketikkan)
+				daftarPresensi[clientIP] = passwordInput
+				log.Printf("REGISTRASI BARU: IP %s terdaftar dengan presensi/password %q", clientIP, passwordInput)
+				return nil, nil // Sukses login (mendaftar otomatis)
+
+			} else {
+				// ---------------------------------------------------------
+				// KONDISI 2: IP INI SUDAH TERDAFTAR SEBELUMNYA
+				// ---------------------------------------------------------
+				// Cek apakah password yang dia masukkan sekarang SAMA dengan password saat dia pertama kali masuk
+				if passwordInput == registeredPassword {
+					log.Printf("LOGIN SUKSES: IP %s menggunakan presensi %q", clientIP, passwordInput)
+					return nil, nil // Sukses login
+				}
+
+				// Jika password berbeda dengan yang didaftarkan pertama kali
+				log.Printf("LOGIN GAGAL: IP %s memasukkan presensi %q, seharusnya %q", clientIP, passwordInput, registeredPassword)
+				return nil, fmt.Errorf("password/presensi salah untuk IP %q", clientIP)
+			}
 		},
 	}
 	config.AddHostKey(privateKey)
