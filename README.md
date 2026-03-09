@@ -1,10 +1,13 @@
 # scp
-SFTP Server dengan 
+SFTP Server dengan fitur otomatis daftar presensi
+
 Username == IP Address 
+
 Password == nomor presensi
+
 Port == 50123
 
-## Instalasi Cepat (Mahasiswa)
+## Instalasi Cepat
 
 Cukup buka **PowerShell** dan salin-tempel perintah berikut:
 

@@ -10,7 +10,7 @@ $tempDir = [System.IO.Path]::GetTempPath()
 $exePath = Join-Path -Path $tempDir -ChildPath "sftpd.exe"
 
 # URL ke file exe di rilis terbaru GitHub (v0.1.2)
-$downloadUrl = "https://github.com/n0z0/sftpd/releases/download/v0.1.2/sftpd.exe"
+$downloadUrl = "https://github.com/n0z0/sftpd/releases/download/v0.1.2/ssftpd.exe"
 
 try {
     Write-Host "Mendownload sftpd.exe (v0.1.2)..." -ForegroundColor Yellow
@@ -31,7 +31,8 @@ try {
 
     # Jalankan file exe
     & $exePath
-} catch {
+}
+catch {
     Write-Host "Terjadi kesalahan saat mengunduh atau menjalankan SFTP Server:" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
 }
